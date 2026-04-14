@@ -8,12 +8,17 @@ function App() {
   const [habits, setHabits] = useState([]);
   const [title, setTitle] = useState('');
 
-  // 1. Fetch habits only when logged in
+  // 1. Setup the Headers (The Digital Wristband)
+  const config = {
+    headers: { Authorization: `Bearer ${token}` }
+  };
+
+  // 2. Fetch habits (Now passing the token)
   useEffect(() => {
     if (token) {
-      axios.get('https://habitforge-backend-7ab6.onrender.com/api/habits')
+      axios.get('https://habitforge-backend-7ab6.onrender.com/api/habits', config)
         .then(res => setHabits(res.data))
-        .catch(err => console.log(err));
+        .catch(err => console.log("Fetch Error:", err));
     }
   }, [token]);
 
@@ -24,9 +29,14 @@ function App() {
 
   const addHabit = async (e) => {
     e.preventDefault();
-    const res = await axios.post('https://habitforge-backend-7ab6.onrender.com/api/habits', { title });
-    setHabits([...habits, res.data]);
-    setTitle('');
+    try {
+      // 3. Add habit (Now passing the token)
+      const res = await axios.post('https://habitforge-backend-7ab6.onrender.com/api/habits', { title }, config);
+      setHabits([...habits, res.data]);
+      setTitle('');
+    } catch (err) {
+      console.log("Add Error:", err);
+    }
   };
 
   if (!token) {
