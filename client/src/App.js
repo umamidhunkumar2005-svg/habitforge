@@ -1,56 +1,67 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import Login from './Login'; // 1. Import your new Login component
+import Login from './Login';
 import './App.css';
 
 function App() {
-  // 2. State to check if user is logged in
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [habits, setHabits] = useState([]);
   const [title, setTitle] = useState('');
 
-  // 3. LOGOUT FUNCTION
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    setToken(null);
-  };
-
-  // --- EXISTING LOGIC: Fetching Habits ---
+  // 1. Fetch habits only when logged in
   useEffect(() => {
     if (token) {
-      // We will update this later to only fetch YOUR habits
       axios.get('https://habitforge-backend-7ab6.onrender.com/api/habits')
         .then(res => setHabits(res.data))
         .catch(err => console.log(err));
     }
   }, [token]);
 
-  // 4. IF NOT LOGGED IN: Show Login Screen
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setToken(null);
+  };
+
+  const addHabit = async (e) => {
+    e.preventDefault();
+    const res = await axios.post('https://habitforge-backend-7ab6.onrender.com/api/habits', { title });
+    setHabits([...habits, res.data]);
+    setTitle('');
+  };
+
   if (!token) {
     return <Login setToken={setToken} />;
   }
 
-  // 5. IF LOGGED IN: Show the Dashboard
   return (
     <div className="App">
-      <header className="app-header">
-        <div className="user-controls">
-           <button className="logout-btn" onClick={handleLogout}>Logout 🚪</button>
-        </div>
-        <div className="level-banner">
-           {/* Your LVL and XP bar code here */}
-        </div>
-      </header>
+      <nav className="navbar">
+        <h2>HabitForge ⚒️</h2>
+        <button className="logout-btn" onClick={handleLogout}>Logout 🚪</button>
+      </nav>
 
-      <main>
-        <h1>HabitForge</h1>
-        
-        {/* Your Habit Input Form Code here */}
+      <div className="dashboard">
+        <section className="forge-area">
+          <h3>Forge a New Habit</h3>
+          <form onSubmit={addHabit}>
+            <input 
+              value={title} 
+              onChange={(e) => setTitle(e.target.value)} 
+              placeholder="e.g., Read 30 mins" 
+            />
+            <button type="submit" className="forge-btn">Forge Habit ⚒️</button>
+          </form>
+        </section>
 
-        <div className="habit-list">
-          {/* Your .map() code to show habits here */}
-        </div>
-      </main>
+        <section className="habit-display">
+          {habits.map(habit => (
+            <div key={habit._id} className="habit-card">
+              <h4>{habit.title}</h4>
+              <p>Streak: {habit.currentStreak} 🔥</p>
+            </div>
+          ))}
+        </section>
+      </div>
     </div>
   );
 }

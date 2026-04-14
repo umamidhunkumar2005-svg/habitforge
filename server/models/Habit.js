@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 
-// This is the blueprint for every habit in your app
 const habitSchema = new mongoose.Schema({
   title: {
     type: String,
@@ -11,6 +10,12 @@ const habitSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  // NEW: This links the habit to a specific User ID
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
   currentStreak: {
     type: Number,
     default: 0
@@ -19,13 +24,11 @@ const habitSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  // We store an array of dates to know exactly when they clicked "Done"
   completedDates: [{
     type: Date
   }]
-}, { timestamps: true }); // This automatically adds 'createdAt' and 'updatedAt'
+}, { timestamps: true });
 
-// Compile the blueprint into a Model
 const Habit = mongoose.model('Habit', habitSchema);
 
 module.exports = Habit;
