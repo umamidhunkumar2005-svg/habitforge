@@ -1,174 +1,56 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import Login from './Login'; // 1. Import your new Login component
 import './App.css';
 
 function App() {
+  // 2. State to check if user is logged in
+  const [token, setToken] = useState(localStorage.getItem('token'));
   const [habits, setHabits] = useState([]);
-  const [newTitle, setNewTitle] = useState('');
-  const [newDesc, setNewDesc] = useState('');
+  const [title, setTitle] = useState('');
 
-  // Gamification State
-  const [level, setLevel] = useState(parseInt(localStorage.getItem('forgeLevel')) || 1);
-  const [xp, setXp] = useState(parseInt(localStorage.getItem('forgeXp')) || 0);
-  
-  // NEW: Dark Mode State
-  const [isDarkMode, setIsDarkMode] = useState(localStorage.getItem('theme') === 'dark');
-
-  const fetchHabits = async () => {
-    try {
-      const response = await axios.get('https://habitforge-backend-7ab6.onrender.com/api/habits');
-      setHabits(response.data);
-    } catch (error) {
-      console.error("The backend isn't answering:", error);
-    }
+  // 3. LOGOUT FUNCTION
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setToken(null);
   };
 
+  // --- EXISTING LOGIC: Fetching Habits ---
   useEffect(() => {
-    fetchHabits();
-  }, []);
-
-  // Toggle Theme Function
-  const toggleTheme = () => {
-    const newTheme = !isDarkMode;
-    setIsDarkMode(newTheme);
-    localStorage.setItem('theme', newTheme ? 'dark' : 'light');
-  };
-
-  // Add Habit
-  const handleAddHabit = async (e) => {
-    e.preventDefault(); 
-    if (!newTitle.trim()) return; 
-
-    try {
-      const response = await axios.post('https://habitforge-backend-7ab6.onrender.com/api/habits', {
-        title: newTitle,
-        description: newDesc
-      });
-      setHabits([...habits, response.data]);
-      setNewTitle('');
-      setNewDesc('');
-    } catch (error) {
-      alert("Failed to create habit!");
+    if (token) {
+      // We will update this later to only fetch YOUR habits
+      axios.get('https://habitforge-backend-7ab6.onrender.com/api/habits')
+        .then(res => setHabits(res.data))
+        .catch(err => console.log(err));
     }
-  };
+  }, [token]);
 
-  // Check-In
-  const handleCheckIn = async (id) => {
-    try {
-      const response = await axios.put(`https://habitforge-backend-7ab6.onrender.com/api/habits/${id}/complete`);
-      setHabits(habits.map(habit => habit._id === id ? response.data : habit));
+  // 4. IF NOT LOGGED IN: Show Login Screen
+  if (!token) {
+    return <Login setToken={setToken} />;
+  }
 
-      let newXp = xp + 10;
-      let newLevel = level;
-
-      if (newXp >= 100) {
-        newLevel += 1;   
-        newXp = newXp - 100; 
-        alert(`🎉 LEVEL UP! You are now Level ${newLevel}!`);
-      }
-
-      setLevel(newLevel);
-      setXp(newXp);
-      localStorage.setItem('forgeLevel', newLevel);
-      localStorage.setItem('forgeXp', newXp);
-
-    } catch (error) {
-      if (error.response && error.response.status === 400) {
-        alert(error.response.data.message); 
-      } else {
-        alert("Something went wrong!");
-      }
-    }
-  };
-
-  // Delete
-  const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this habit?")) {
-      try {
-        await axios.delete(`https://habitforge-backend-7ab6.onrender.com/api/habits/${id}`);
-        setHabits(habits.filter(habit => habit._id !== id));
-      } catch (error) {
-        console.error("Failed to delete:", error);
-      }
-    }
-  };
-
+  // 5. IF LOGGED IN: Show the Dashboard
   return (
-    // NEW: We inject a "dark-mode" class here if the toggle is ON
-    <div className={`App ${isDarkMode ? 'dark-mode' : ''}`}>
-      
-      <div className="player-banner">
-        <div className="level-badge">LVL {level}</div>
-        <div className="xp-section">
-          <div className="xp-bar-container">
-            <div className="xp-bar-fill" style={{ width: `${xp}%` }}></div>
-          </div>
-          <span className="xp-text">{xp} / 100 XP</span>
-        </div>
-      </div>
-
-      {/* NEW: Header Container with Toggle Button */}
+    <div className="App">
       <header className="app-header">
-        <h1>HabitForge</h1>
-        <button className="theme-toggle" onClick={toggleTheme}>
-          {isDarkMode ? '☀️ Light' : '🌙 Dark'}
-        </button>
+        <div className="user-controls">
+           <button className="logout-btn" onClick={handleLogout}>Logout 🚪</button>
+        </div>
+        <div className="level-banner">
+           {/* Your LVL and XP bar code here */}
+        </div>
       </header>
 
-      <div className="form-container">
-        <form onSubmit={handleAddHabit} className="add-habit-form">
-          <input 
-            type="text" 
-            placeholder="New Habit (e.g., Read 30 mins)" 
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-            required
-            className="habit-input"
-          />
-          <input 
-            type="text" 
-            placeholder="Why? (Optional)" 
-            value={newDesc}
-            onChange={(e) => setNewDesc(e.target.value)}
-            className="habit-input"
-          />
-          <button type="submit" className="add-btn">Forge Habit 🔨</button>
-        </form>
-      </div>
+      <main>
+        <h1>HabitForge</h1>
+        
+        {/* Your Habit Input Form Code here */}
 
-      {habits.length > 0 && (
-        <div className="chart-container">
-          <h2>Streak Analytics 📈</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={habits}>
-              <XAxis dataKey="title" stroke={isDarkMode ? '#ecf0f1' : '#2c3e50'} />
-              <YAxis allowDecimals={false} stroke={isDarkMode ? '#ecf0f1' : '#2c3e50'} />
-              <Tooltip cursor={{fill: 'transparent'}} contentStyle={{ backgroundColor: isDarkMode ? '#1a1a2e' : 'white', color: isDarkMode ? 'white' : 'black' }} />
-              <Bar dataKey="currentStreak" fill="#3498db" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+        <div className="habit-list">
+          {/* Your .map() code to show habits here */}
         </div>
-      )}
-
-      <div className="habit-list">
-        {habits.map(habit => (
-          <div key={habit._id} className="habit-card">
-            <h3>{habit.title}</h3>
-            {habit.description && <p className="habit-desc">{habit.description}</p>}
-            <p className="streak-text">Streak: {habit.currentStreak} 🔥</p>
-            
-            <div className="button-group">
-              <button className="check-in-btn" onClick={() => handleCheckIn(habit._id)}>
-                Check In
-              </button>
-              <button className="delete-btn" onClick={() => handleDelete(habit._id)}>
-                Delete
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+      </main>
     </div>
   );
 }
