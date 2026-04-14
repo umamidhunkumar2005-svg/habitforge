@@ -17,7 +17,7 @@ function App() {
 
   const fetchHabits = async () => {
     try {
-      const response = await axios.get('await axios.get('https://habitforge-backend-7ab6.onrender.com/api/habits')/api/habits');
+      const response = await axios.get('https://habitforge-backend-7ab6.onrender.com/api/habits');
       setHabits(response.data);
     } catch (error) {
       console.error("The backend isn't answering:", error);
@@ -41,7 +41,7 @@ function App() {
     if (!newTitle.trim()) return; 
 
     try {
-      const response = await axios.post('await axios.get('https://habitforge-backend-7ab6.onrender.com/api/habits')/api/habits', {
+      const response = await axios.post('https://habitforge-backend-7ab6.onrender.com/api/habits', {
         title: newTitle,
         description: newDesc
       });
@@ -56,7 +56,7 @@ function App() {
   // Check-In
   const handleCheckIn = async (id) => {
     try {
-      const response = await axios.put(`await axios.get('https://habitforge-backend-7ab6.onrender.com/api/habits')/api/habits/${id}/complete`);
+      const response = await axios.put(`https://habitforge-backend-7ab6.onrender.com/api/habits/${id}/complete`);
       setHabits(habits.map(habit => habit._id === id ? response.data : habit));
 
       let newXp = xp + 10;
@@ -86,7 +86,7 @@ function App() {
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to delete this habit?")) {
       try {
-        await axios.delete(`await axios.get('https://habitforge-backend-7ab6.onrender.com/api/habits')/api/habits/${id}`);
+        await axios.delete(`https://habitforge-backend-7ab6.onrender.com/api/habits/${id}`);
         setHabits(habits.filter(habit => habit._id !== id));
       } catch (error) {
         console.error("Failed to delete:", error);
