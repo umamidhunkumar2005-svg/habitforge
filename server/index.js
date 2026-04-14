@@ -55,7 +55,9 @@ app.post('/api/auth/login', async (req, res) => {
     if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    res.json({ token, user: { id: user._id, email: user.email } });
+    
+    // Updated Login to send XP and Level on load
+    res.json({ token, user: { id: user._id, email: user.email, xp: user.xp, level: user.level } });
   } catch (error) {
     res.status(500).json({ error: "Login failed" });
   }
@@ -63,7 +65,7 @@ app.post('/api/auth/login', async (req, res) => {
 
 // --- PROTECTED HABIT ROUTES (Only for Logged-in Users) ---
 
-// 1. Fetch habits (Only ones owned by the logged-in user)
+// 1. Fetch habits
 app.get('/api/habits', auth, async (req, res) => {
   try {
     const habits = await Habit.find({ user: req.userId }); 
@@ -73,13 +75,13 @@ app.get('/api/habits', auth, async (req, res) => {
   }
 });
 
-// 2. Create habit (Stamps it with the User ID)
+// 2. Create habit
 app.post('/api/habits', auth, async (req, res) => {
   try {
     const newHabit = new Habit({
       title: req.body.title,
       description: req.body.description || "",
-      user: req.userId // This is critical for security!
+      user: req.userId
     });
     const savedHabit = await newHabit.save(); 
     res.status(201).json(savedHabit); 
@@ -89,13 +91,14 @@ app.post('/api/habits', auth, async (req, res) => {
   }
 });
 
-// 3. Complete Habit (Gamification Engine)
+// 3. Complete Habit (THE RPG ENGINE 🐉)
 app.put('/api/habits/:id/complete', auth, async (req, res) => {
   try {
-    // Ensure the user owns the habit they are trying to complete
+    // A. Find the Habit
     const habit = await Habit.findOne({ _id: req.params.id, user: req.userId });
     if (!habit) return res.status(404).json({ error: "Habit not found or not owned by you" });
 
+    // B. Anti-Cheat (Once per day check)
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
 
@@ -107,13 +110,37 @@ app.put('/api/habits/:id/complete', auth, async (req, res) => {
       }
     }
 
+    // C. Update Habit Streaks
     habit.completedDates.push(new Date());
     habit.currentStreak += 1;
     if (habit.currentStreak > habit.longestStreak) habit.longestStreak = habit.currentStreak;
-
     const updatedHabit = await habit.save();
-    res.status(200).json(updatedHabit);
+
+    // D. NEW: THE RPG SYSTEM (Update User XP & Level)
+    const user = await User.findById(req.userId);
+    
+    // Give 10 XP per completion
+    let newXp = user.xp + 10;
+    let newLevel = user.level;
+
+    // Level Up Logic! Every 100 XP is a new level.
+    if (newXp >= 100) {
+      newLevel += 1;       // Increase Level
+      newXp = newXp - 100; // Reset XP toward the next 100
+    }
+
+    user.xp = newXp;
+    user.level = newLevel;
+    await user.save();
+
+    // E. Send BOTH the updated habit and the updated user stats back to the frontend
+    res.status(200).json({
+      habit: updatedHabit,
+      userStats: { xp: user.xp, level: user.level }
+    });
+
   } catch (error) {
+    console.error("Complete Habit Error:", error);
     res.status(500).json({ error: "Failed to update habit" });
   }
 });
