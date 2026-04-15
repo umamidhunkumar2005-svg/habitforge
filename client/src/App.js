@@ -8,22 +8,30 @@ function App() {
   const [habits, setHabits] = useState([]);
   const [title, setTitle] = useState('');
 
-  // --- NEW: RPG STATE ---
+  // --- RPG STATE ---
   const [xp, setXp] = useState(parseInt(localStorage.getItem('xp')) || 0);
   const [level, setLevel] = useState(parseInt(localStorage.getItem('level')) || 1);
+  
+  // --- NEW: MULTIPLAYER STATE ---
+  const [leaderboard, setLeaderboard] = useState([]);
 
-  // The Digital Wristband
   const config = {
     headers: { Authorization: `Bearer ${token}` }
   };
 
   useEffect(() => {
     if (token) {
+      // Fetch Personal Habits
       axios.get('https://habitforge-backend-7ab6.onrender.com/api/habits', config)
         .then(res => setHabits(res.data))
         .catch(err => console.log("Fetch Error:", err));
+
+      // NEW: Fetch Global Leaderboard
+      axios.get('https://habitforge-backend-7ab6.onrender.com/api/leaderboard')
+        .then(res => setLeaderboard(res.data))
+        .catch(err => console.log("Leaderboard Fetch Error:", err));
     }
-  }, [token]);
+  }, [token]); // We might want to refresh the leaderboard when they complete a habit too!
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -43,24 +51,20 @@ function App() {
     }
   };
 
-  // --- UPDATED: THE GAMIFICATION ENGINE ---
   const completeHabit = async (id) => {
     try {
-      // 1. Send the completion request
       const res = await axios.put(`https://habitforge-backend-7ab6.onrender.com/api/habits/${id}/complete`, {}, config);
-      
-      // 2. The backend now returns { habit, userStats }!
-      // Update the habit in the list
       setHabits(habits.map(habit => habit._id === id ? res.data.habit : habit));
       
-      // 3. Update the Player Stats!
       setXp(res.data.userStats.xp);
       setLevel(res.data.userStats.level);
-      
-      // Save stats so they survive a page refresh
       localStorage.setItem('xp', res.data.userStats.xp);
       localStorage.setItem('level', res.data.userStats.level);
       
+      // NEW: Refresh the leaderboard silently in the background when you get XP!
+      axios.get('https://habitforge-backend-7ab6.onrender.com/api/leaderboard')
+        .then(res => setLeaderboard(res.data));
+
     } catch (err) {
       alert(err.response?.data?.message || "Something went wrong!");
     }
@@ -86,56 +90,60 @@ function App() {
         <button className="logout-btn" onClick={handleLogout}>Logout 🚪</button>
       </nav>
 
-      <div className="dashboard">
+      <div className="dashboard" style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', justifyContent: 'center' }}>
         
-        {/* --- NEW: PLAYER STATS UI --- */}
-        <div className="player-stats" style={{ backgroundColor: '#2c3e50', color: 'white', padding: '15px', borderRadius: '8px', marginBottom: '20px', textAlign: 'left', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-          <h3 style={{ margin: '0 0 10px 0', color: '#f1c40f' }}>Level {level}</h3>
-          
-          {/* The XP Progress Bar */}
-          <div className="xp-bar-container" style={{ backgroundColor: '#1a252f', height: '20px', borderRadius: '10px', overflow: 'hidden' }}>
-            <div className="xp-bar" style={{ width: `${xp}%`, backgroundColor: '#f1c40f', height: '100%', transition: 'width 0.5s ease-in-out' }}></div>
+        {/* Left Column: Stats & Habits */}
+        <div className="main-content" style={{ flex: '1', minWidth: '300px', maxWidth: '600px' }}>
+          {/* PLAYER STATS UI */}
+          <div className="player-stats" style={{ backgroundColor: '#2c3e50', color: 'white', padding: '15px', borderRadius: '8px', marginBottom: '20px', textAlign: 'left', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+            <h3 style={{ margin: '0 0 10px 0', color: '#f1c40f' }}>Level {level}</h3>
+            <div className="xp-bar-container" style={{ backgroundColor: '#1a252f', height: '20px', borderRadius: '10px', overflow: 'hidden' }}>
+              <div className="xp-bar" style={{ width: `${xp}%`, backgroundColor: '#f1c40f', height: '100%', transition: 'width 0.5s ease-in-out' }}></div>
+            </div>
+            <p style={{ margin: '5px 0 0 0', fontSize: '14px', color: '#bdc3c7', fontWeight: 'bold' }}>XP: {xp} / 100</p>
           </div>
-          
-          <p style={{ margin: '5px 0 0 0', fontSize: '14px', color: '#bdc3c7', fontWeight: 'bold' }}>XP: {xp} / 100</p>
+
+          <section className="forge-area" style={{ marginBottom: '20px' }}>
+            <h3>Forge a New Habit</h3>
+            <form onSubmit={addHabit}>
+              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g., Code for 1 hour" />
+              <button type="submit" className="forge-btn">Forge Habit ⚒️</button>
+            </form>
+          </section>
+
+          <section className="habit-display">
+            {habits.map(habit => (
+              <div key={habit._id} className="habit-card">
+                <h4>{habit.title}</h4>
+                <p>Streak: {habit.currentStreak} 🔥</p>
+                <div className="button-group" style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                  <button className="complete-btn" onClick={() => completeHabit(habit._id)}>Done! ✅</button>
+                  <button className="delete-btn" onClick={() => deleteHabit(habit._id)} style={{ backgroundColor: '#ff4d4d', color: 'white', border: 'none', padding: '5px 10px', cursor: 'pointer', borderRadius: '4px' }}>Trash 🗑️</button>
+                </div>
+              </div>
+            ))}
+          </section>
         </div>
 
-        <section className="forge-area">
-          <h3>Forge a New Habit</h3>
-          <form onSubmit={addHabit}>
-            <input 
-              value={title} 
-              onChange={(e) => setTitle(e.target.value)} 
-              placeholder="e.g., Code for 1 hour" 
-            />
-            <button type="submit" className="forge-btn">Forge Habit ⚒️</button>
-          </form>
-        </section>
+        {/* --- Right Column: NEW LEADERBOARD UI --- */}
+        <div className="multiplayer-sidebar" style={{ flex: '1', minWidth: '250px', maxWidth: '350px' }}>
+          <div className="leaderboard-card" style={{ backgroundColor: '#fdfbf7', border: '2px solid #e0dcd3', padding: '20px', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
+            <h3 style={{ marginTop: '0', color: '#2c3e50', borderBottom: '2px solid #f1c40f', paddingBottom: '10px' }}>Hall of Fame 🏆</h3>
+            <ul style={{ listStyle: 'none', padding: '0', margin: '0' }}>
+              {leaderboard.map((user, index) => (
+                <li key={user._id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #eee' }}>
+                  <span style={{ fontWeight: 'bold', color: index === 0 ? '#d35400' : '#34495e' }}>
+                    #{index + 1} {user.name}
+                  </span>
+                  <span style={{ color: '#7f8c8d' }}>
+                    Lvl {user.level}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
 
-        <section className="habit-display">
-          {habits.map(habit => (
-            <div key={habit._id} className="habit-card">
-              <h4>{habit.title}</h4>
-              <p>Streak: {habit.currentStreak} 🔥</p>
-              
-              <div className="button-group" style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                <button 
-                  className="complete-btn" 
-                  onClick={() => completeHabit(habit._id)}
-                >
-                  Done! ✅
-                </button>
-                <button 
-                  className="delete-btn" 
-                  onClick={() => deleteHabit(habit._id)}
-                  style={{ backgroundColor: '#ff4d4d', color: 'white', border: 'none', padding: '5px 10px', cursor: 'pointer', borderRadius: '4px' }}
-                >
-                  Trash 🗑️
-                </button>
-              </div>
-            </div>
-          ))}
-        </section>
       </div>
     </div>
   );
